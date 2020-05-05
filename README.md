@@ -1,2 +1,2 @@
 # MiAPR_project
-Supervised learning of heuristic functions used for motion planning.
+Supervised learning of heuristic functions for self-driving car.  
