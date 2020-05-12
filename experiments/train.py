@@ -5,6 +5,7 @@ from argparse import ArgumentParser
 import inspect
 import os
 import sys
+import datetime
 
 # add parent (root) to pythonpath
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
@@ -18,6 +19,8 @@ def data_loader():
 
 
 def main(args):
+
+    path_base = f'results/{datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}'
     df = pd.read_csv(args.dataset_path)
     target = df.pop(df.columns[4])
     dataset = tf.data.Dataset.from_tensor_slices((df.values, target.values))
@@ -29,17 +32,25 @@ def main(args):
     val_ds = dataset.skip(train_size).batch(256)
 
     model = dubinsNet()
-    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=args.lr), loss=tf.keras.losses.mean_squared_error,
+
+    lr = args.lr
+    lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
+        lr,
+        decay_steps=100000,
+        decay_rate=0.96,
+        staircase=False)
+
+    optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
+    model.compile(optimizer=optimizer, loss=tf.keras.losses.mean_squared_error,
                   metrics=[tf.keras.metrics.mean_squared_error, tf.keras.metrics.mean_absolute_error])
 
     callbacks = [
         tf.keras.callbacks.ModelCheckpoint(
-            filepath='checkpoints/dubinsnet_{epoch}',
+            filepath=path_base+'/checkpoints/dubinsnet_{epoch}',
             save_best_only=True,
             monitor='val_loss',
             verbose=1),
-        tf.keras.callbacks.TensorBoard(log_dir='log')
-
+        tf.keras.callbacks.TensorBoard(log_dir=path_base + '/log')
     ]
 
     history = model.fit(train_ds, epochs=args.epochs, validation_data=val_ds, callbacks=callbacks)
