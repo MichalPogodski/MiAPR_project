@@ -7,7 +7,6 @@ import os
 import sys
 import datetime
 
-# add parent (root) to pythonpath
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parentdir = os.path.dirname(currentdir)
 sys.path.insert(0, parentdir)
@@ -21,6 +20,9 @@ def data_loader():
 def main(args):
 
     path_base = f'results/{datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}'
+    file_writer = tf.summary.create_file_writer(path_base + "/log/metrics")
+    file_writer.set_as_default()
+
     df = pd.read_csv(args.dataset_path)
     target = df.pop(df.columns[4])
     dataset = tf.data.Dataset.from_tensor_slices((df.values, target.values))
@@ -28,21 +30,22 @@ def main(args):
     dataset.shuffle(len(df))
 
     train_size = int(0.8 * len(df))
-    train_ds = dataset.take(train_size).batch(256)
-    val_ds = dataset.skip(train_size).batch(256)
+    train_ds = dataset.take(train_size).batch(32)
+    val_ds = dataset.skip(train_size).batch(32)
 
     model = dubinsNet()
 
     lr = args.lr
-    lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
-        lr,
-        decay_steps=100000,
-        decay_rate=0.96,
-        staircase=False)
+    lr_decay = tf.keras.optimizers.schedules.ExponentialDecay(lr, 5, 0.96)
 
-    optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
-    model.compile(optimizer=optimizer, loss=tf.keras.losses.mean_squared_error,
-                  metrics=[tf.keras.metrics.mean_squared_error, tf.keras.metrics.mean_absolute_error])
+    def lr_schedule(epoch):
+        lr = lr_decay(epoch)
+        tf.summary.scalar('learning rate', data=lr, step=epoch)
+        return lr
+
+    optimizer = tf.keras.optimizers.Adam()
+    model.compile(optimizer=optimizer, loss=tf.keras.losses.mse,
+                  metrics=[tf.keras.metrics.mean_squared_error, tf.keras.metrics.mean_absolute_error, tf.keras.metrics.RootMeanSquaredError()])
 
     callbacks = [
         tf.keras.callbacks.ModelCheckpoint(
@@ -50,7 +53,10 @@ def main(args):
             save_best_only=True,
             monitor='val_loss',
             verbose=1),
-        tf.keras.callbacks.TensorBoard(log_dir=path_base + '/log')
+        tf.keras.callbacks.TensorBoard(log_dir=path_base + '/log'),
+        tf.keras.callbacks.LearningRateScheduler(lr_schedule),
+        tf.keras.callbacks.EarlyStopping(monitor='val_loss',
+                                         patience=10, min_delta=1e-4)
     ]
 
     history = model.fit(train_ds, epochs=args.epochs, validation_data=val_ds, callbacks=callbacks)
