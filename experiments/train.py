@@ -36,7 +36,7 @@ def main(args):
     model = dubinsNet()
 
     lr = args.lr
-    lr_decay = tf.keras.optimizers.schedules.ExponentialDecay(lr, 5, 0.96)
+    lr_decay = tf.keras.optimizers.schedules.ExponentialDecay(lr, 2, 0.96)
 
     def lr_schedule(epoch):
         lr = lr_decay(epoch)
@@ -56,7 +56,7 @@ def main(args):
         tf.keras.callbacks.TensorBoard(log_dir=path_base + '/log'),
         tf.keras.callbacks.LearningRateScheduler(lr_schedule),
         tf.keras.callbacks.EarlyStopping(monitor='val_loss',
-                                         patience=10, min_delta=1e-4)
+                                         patience=10, min_delta=1e-2)
     ]
 
     history = model.fit(train_ds, epochs=args.epochs, validation_data=val_ds, callbacks=callbacks)
