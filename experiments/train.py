@@ -51,7 +51,7 @@ def main(args):
             save_best_only=True,
             monitor='val_loss',
             verbose=1),
-        tf.keras.callbacks.TensorBoard(log_dir=path_base + '/log')
+        tf.keras.callbacks.TensorBoard(log_dir=path_base + '/log/scalars')
     ]
 
     history = model.fit(train_ds, epochs=args.epochs, validation_data=val_ds, callbacks=callbacks)
