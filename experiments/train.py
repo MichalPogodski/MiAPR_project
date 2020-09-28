@@ -1,6 +1,7 @@
 import tensorflow as tf
 import pandas as pd
 from argparse import ArgumentParser
+from matplotlib import pyplot as plt
 
 import inspect
 import os
@@ -20,7 +21,7 @@ def data_loader():
 
 def main(args):
 
-    path_base = f'results/{datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}'
+    path_base = 'results/{}'.format(datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S"))
     df = pd.read_csv(args.dataset_path)
     target = df.pop(df.columns[4])
     dataset = tf.data.Dataset.from_tensor_slices((df.values, target.values))
@@ -55,6 +56,10 @@ def main(args):
 
     history = model.fit(train_ds, epochs=args.epochs, validation_data=val_ds, callbacks=callbacks)
     print(history.history)
+
+    plt.plot(history.history['mean_squared_error'])
+    plt.plot(history.history['val_loss'])
+    plt.show()
 
 
 
